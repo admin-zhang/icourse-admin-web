@@ -12,7 +12,7 @@ const routes = [
     path: '/',
     component: () => import('@/layout/Index.vue'),
     redirect: '/dashboard',
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: '首页' },
     children: [
       {
         path: 'dashboard',
@@ -21,22 +21,34 @@ const routes = [
         meta: { title: '首页' }
       },
       {
-        path: 'course',
-        name: 'Course',
-        component: () => import('@/views/Course.vue'),
-        meta: { title: '课程管理' }
-      },
-      {
         path: 'user',
         name: 'User',
         component: () => import('@/views/User.vue'),
         meta: { title: '用户管理' }
       },
       {
+        path: 'course',
+        name: 'Course',
+        component: () => import('@/views/Course.vue'),
+        meta: { title: '课程列表' }
+      },
+      {
+        path: 'course/category',
+        name: 'CourseCategory',
+        component: () => import('@/views/Course.vue'),
+        meta: { title: '课程分类' }
+      },
+      {
         path: 'order',
         name: 'Order',
         component: () => import('@/views/Order.vue'),
-        meta: { title: '订单管理' }
+        meta: { title: '订单列表' }
+      },
+      {
+        path: 'order/refund',
+        name: 'OrderRefund',
+        component: () => import('@/views/Order.vue'),
+        meta: { title: '退款管理' }
       }
     ]
   }

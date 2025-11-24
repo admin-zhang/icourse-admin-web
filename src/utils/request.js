@@ -18,7 +18,7 @@ service.interceptors.request.use(
     const userStore = useUserStore()
     // 如果有 token，添加到请求头
     if (userStore.token) {
-      config.headers.Authorization = `Bearer ${userStore.token}`
+      config.headers.Authorization = `${userStore.token}`
     }
     return config
   },
@@ -33,12 +33,15 @@ service.interceptors.response.use(
   (response) => {
     const res = response.data
     
+    // 将 code 转换为数字进行比较（兼容字符串形式的 code）
+    const code = Number(res.code)
+    
     // 如果响应状态码不是 200，说明有错误
-    if (res.code !== 200) {
+    if (code !== 200) {
       ElMessage.error(res.message || '请求失败')
       
       // 如果是 401 未授权，清除 token 并跳转到登录页
-      if (res.code === 401) {
+      if (code === 401) {
         const userStore = useUserStore()
         userStore.logout()
         router.push('/login')
