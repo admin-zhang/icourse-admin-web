@@ -2,6 +2,10 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
+        <!-- Logo展示 -->
+        <div class="login-logo" v-if="logoUrl">
+          <img :src="logoUrl" :alt="logoAlt" class="logo-image" />
+        </div>
         <h2>iCourse 管理后台</h2>
         <p>管理员登录</p>
       </div>
@@ -107,6 +111,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, Phone, Message } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode } from '@/api/auth'
+import { logoConfig } from '@/config/logo'
 
 const router = useRouter()
 const route = useRoute()
@@ -115,6 +120,10 @@ const userStore = useUserStore()
 const activeTab = ref('password')
 const loading = ref(false)
 const codeCountdown = ref(0)
+
+// Logo配置
+const logoUrl = ref(logoConfig.url)
+const logoAlt = ref(logoConfig.alt)
 
 const passwordFormRef = ref(null)
 const smsFormRef = ref(null)
@@ -248,6 +257,19 @@ const handleSmsLogin = async () => {
 .login-header {
   text-align: center;
   margin-bottom: 30px;
+}
+
+.login-logo {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-logo .logo-image {
+  max-width: 120px;
+  max-height: 60px;
+  object-fit: contain;
 }
 
 .login-header h2 {

@@ -1,6 +1,23 @@
 <template>
   <el-container class="layout-container">
     <el-aside :width="isCollapse ? '64px' : '200px'" class="layout-aside">
+      <!-- Logo区域 -->
+      <div class="logo-container">
+        <div class="logo-wrapper" @click="$router.push('/dashboard')">
+          <img 
+            v-if="logoUrl" 
+            :src="logoUrl" 
+            :alt="logoAlt"
+            class="logo-image"
+            :class="{ 'logo-collapsed': isCollapse }"
+          />
+          <span v-else class="logo-text" :class="{ 'logo-text-collapsed': isCollapse }">
+            <span v-if="!isCollapse">iCourse</span>
+            <span v-else>iC</span>
+          </span>
+        </div>
+      </div>
+      
       <el-menu
         :default-active="activeMenu"
         :collapse="isCollapse"
@@ -76,12 +93,17 @@ import { User, ArrowDown, Fold, Expand, House } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useMenuStore } from '@/stores/menu'
 import MenuItem from '@/components/MenuItem.vue'
+import { logoConfig } from '@/config/logo'
 
 const route = useRoute()
 const userStore = useUserStore()
 const menuStore = useMenuStore()
 
 const activeMenu = computed(() => route.path)
+
+// Logo配置
+const logoUrl = ref(logoConfig.url)
+const logoAlt = ref(logoConfig.alt)
 
 // 过滤后的菜单（只显示状态正常且可见的菜单）
 const filteredMenus = computed(() => {
@@ -268,11 +290,64 @@ const handleCommand = async (command) => {
   height: 100vh;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Logo区域样式 */
+.logo-container {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.logo-wrapper {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.logo-wrapper:hover {
+  opacity: 0.8;
+}
+
+.logo-image {
+  max-width: 100%;
+  max-height: 40px;
+  height: auto;
+  object-fit: contain;
+  transition: all 0.3s;
+}
+
+.logo-image.logo-collapsed {
+  max-height: 32px;
+}
+
+.logo-text {
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+}
+
+.logo-text-collapsed {
+  font-size: 16px;
 }
 
 .layout-menu {
   border-right: none;
-  height: 100%;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* 侧边栏菜单样式 */
