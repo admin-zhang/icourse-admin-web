@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { loginByPassword, logout as logoutApi } from '@/api/auth'
+import { useMenuStore } from '@/stores/menu'
 import router from '@/router'
 
 export const useUserStore = defineStore('user', {
@@ -36,6 +37,16 @@ export const useUserStore = defineStore('user', {
         localStorage.setItem('admin_nickName', data.nickName || '')
         localStorage.setItem('admin_expiresIn', data.expiresIn)
         
+        // 登录成功后获取菜单数据
+        const menuStore = useMenuStore()
+        try {
+          await menuStore.fetchMenus()
+        } catch (error) {
+          console.error('获取菜单失败:', error)
+          // 如果获取失败，尝试从 localStorage 恢复
+          menuStore.restoreMenus()
+        }
+        
         return Promise.resolve(res)
       } catch (error) {
         return Promise.reject(error)
@@ -44,14 +55,20 @@ export const useUserStore = defineStore('user', {
 
     // 退出登录
     async logout() {
+      // 先清除本地状态，避免重复调用
+      if (!this.token) {
+        return
+      }
+      
       try {
-        if (this.token) {
-          await logoutApi()
-        }
+        // 尝试调用退出接口（静默失败，不阻塞退出流程）
+        await logoutApi().catch(() => {
+          // 忽略退出接口的错误，确保能正常清除本地状态
+        })
       } catch (error) {
         console.error('退出登录失败:', error)
       } finally {
-        // 清除本地存储
+        // 清除用户信息
         this.token = ''
         this.userId = ''
         this.username = ''
@@ -64,8 +81,16 @@ export const useUserStore = defineStore('user', {
         localStorage.removeItem('admin_nickName')
         localStorage.removeItem('admin_expiresIn')
         
-        // 跳转到登录页
-        router.push('/login')
+        // 清除菜单数据
+        const menuStore = useMenuStore()
+        menuStore.clearMenus()
+        
+        // 跳转到登录页（避免重复跳转）
+        if (router.currentRoute.value.path !== '/login') {
+          router.push('/login').catch(() => {
+            // 忽略路由跳转错误（可能已经在登录页）
+          })
+        }
       }
     }
   }

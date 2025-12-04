@@ -10,30 +10,21 @@
         text-color="#b3c4d6"
         active-text-color="#409eff"
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><House /></el-icon>
-          <template #title>首页</template>
-        </el-menu-item>
-        <el-menu-item index="/user">
-          <el-icon><UserFilled /></el-icon>
-          <template #title>用户管理</template>
-        </el-menu-item>
-        <el-sub-menu index="course-management">
-          <template #title>
-            <el-icon><Reading /></el-icon>
-            <span>课程管理</span>
-          </template>
-          <el-menu-item index="/course">课程列表</el-menu-item>
-          <el-menu-item index="/course/category">课程分类</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="order-management">
-          <template #title>
-            <el-icon><ShoppingCart /></el-icon>
-            <span>订单管理</span>
-          </template>
-          <el-menu-item index="/order">订单列表</el-menu-item>
-          <el-menu-item index="/order/refund">退款管理</el-menu-item>
-        </el-sub-menu>
+        <!-- 动态渲染菜单 -->
+        <template v-if="filteredMenus.length > 0">
+          <menu-item
+            v-for="menu in filteredMenus"
+            :key="menu.id"
+            :menu="menu"
+          />
+        </template>
+        <template v-else>
+          <!-- 如果没有菜单数据，至少显示首页 -->
+          <el-menu-item index="/dashboard">
+            <el-icon><House /></el-icon>
+            <template #title>首页</template>
+          </el-menu-item>
+        </template>
       </el-menu>
     </el-aside>
     <el-container>
@@ -78,16 +69,81 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { User, ArrowDown, House, Reading, UserFilled, ShoppingCart, Fold, Expand } from '@element-plus/icons-vue'
+import { User, ArrowDown, Fold, Expand, House } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useMenuStore } from '@/stores/menu'
+import MenuItem from '@/components/MenuItem.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
+const menuStore = useMenuStore()
 
 const activeMenu = computed(() => route.path)
+
+// 过滤后的菜单（只显示状态正常且可见的菜单）
+const filteredMenus = computed(() => {
+  const menus = menuStore.sidebarMenus || []
+  
+  // 如果没有菜单数据，至少返回首页菜单
+  if (menus.length === 0) {
+    return [{
+      id: 0,
+      menuName: '首页',
+      parentId: 0,
+      menuType: 'C',
+      path: '/dashboard',
+      component: 'Dashboard',
+      icon: 'house',
+      status: 0,
+      visible: 0,
+      children: []
+    }]
+  }
+  
+  const filtered = menus.filter(menu => {
+    // 只显示状态正常（status === 0）且可见（visible === 0）的菜单
+    // 首页菜单（id为0）始终显示
+    if (menu.id === 0) {
+      return true
+    }
+    return menu.status === 0 && menu.visible === 0
+  })
+  
+  // 确保至少有一个菜单（首页）
+  if (filtered.length === 0) {
+    return [{
+      id: 0,
+      menuName: '首页',
+      parentId: 0,
+      menuType: 'C',
+      path: '/dashboard',
+      component: 'Dashboard',
+      icon: 'house',
+      status: 0,
+      visible: 0,
+      children: []
+    }]
+  }
+  
+  return filtered
+})
+
+// 组件挂载时恢复菜单数据
+onMounted(() => {
+  if (!menuStore.menuLoaded) {
+    menuStore.restoreMenus()
+  }
+  
+  // 如果已登录但菜单未加载，尝试加载菜单
+  if (userStore.isLoggedIn && !menuStore.menuLoaded) {
+    menuStore.fetchMenus().catch(error => {
+      console.error('加载菜单失败:', error)
+    })
+  }
+})
 
 // 侧边栏收缩状态
 const isCollapse = ref(false)
@@ -97,40 +153,47 @@ const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
 }
 
-// 面包屑数据
+// 面包屑数据（根据菜单树动态生成）
 const breadcrumbList = computed(() => {
   const breadcrumbs = []
-  
-  // 添加首页
-  breadcrumbs.push({
-    title: '首页',
-    path: '/dashboard'
-  })
-  
-  // 获取当前路由路径
   const currentPath = route.path
   
-  // 根据路径判断父级菜单
-  if (currentPath.startsWith('/course')) {
-    breadcrumbs.push({
-      title: '课程管理',
-      path: '/course'
-    })
-  } else if (currentPath.startsWith('/order')) {
-    breadcrumbs.push({
-      title: '订单管理',
-      path: '/order'
-    })
+  // 查找当前路径对应的菜单
+  const findMenuByPath = (menus, path, parents = []) => {
+    for (const menu of menus) {
+      const currentParents = [...parents, menu]
+      
+      if (menu.path === path) {
+        return currentParents
+      }
+      
+      if (menu.children && menu.children.length > 0) {
+        const found = findMenuByPath(menu.children, path, currentParents)
+        if (found) {
+          return found
+        }
+      }
+    }
+    return null
   }
   
-  // 添加当前页面标题
-  if (route.meta && route.meta.title) {
-    const currentTitle = route.meta.title
-    // 如果当前标题不是父级菜单标题，则添加
-    const lastBreadcrumb = breadcrumbs[breadcrumbs.length - 1]
-    if (!lastBreadcrumb || lastBreadcrumb.title !== currentTitle) {
+  const menuPath = findMenuByPath(menuStore.menuTree, currentPath)
+  
+  if (menuPath) {
+    // 根据菜单树生成面包屑
+    menuPath.forEach(menu => {
+      if (menu.menuType === 'M' || menu.menuType === 'C') {
+        breadcrumbs.push({
+          title: menu.menuName,
+          path: menu.path || '#'
+        })
+      }
+    })
+  } else {
+    // 如果找不到菜单，使用路由的 meta 信息
+    if (route.meta && route.meta.title) {
       breadcrumbs.push({
-        title: currentTitle,
+        title: route.meta.title,
         path: currentPath
       })
     }
@@ -202,6 +265,9 @@ const handleCommand = async (command) => {
   background: #1e3a5f;
   transition: width 0.3s;
   overflow: hidden;
+  height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
 .layout-menu {

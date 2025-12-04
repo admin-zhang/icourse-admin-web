@@ -38,15 +38,18 @@ service.interceptors.response.use(
     
     // 如果响应状态码不是 200，说明有错误
     if (code !== 200) {
-      ElMessage.error(res.message || '请求失败')
-      
-      // 如果是 401 未授权，清除 token 并跳转到登录页
+      // 如果是 401 未授权，先处理退出逻辑
       if (code === 401) {
         const userStore = useUserStore()
-        userStore.logout()
-        router.push('/login')
+        // 避免重复提示
+        if (userStore.isLoggedIn) {
+          ElMessage.error('登录已过期，请重新登录')
+          userStore.logout()
+        }
+        return Promise.reject(new Error('登录已过期'))
       }
       
+      ElMessage.error(res.message || '请求失败')
       return Promise.reject(new Error(res.message || '请求失败'))
     }
     
@@ -59,15 +62,28 @@ service.interceptors.response.use(
       const { status, data } = error.response
       
       if (status === 401) {
-        ElMessage.error('登录已过期，请重新登录')
         const userStore = useUserStore()
-        userStore.logout()
-        router.push('/login')
+        // 避免重复提示和重复跳转
+        if (userStore.isLoggedIn) {
+          ElMessage.error('登录已过期，请重新登录')
+          userStore.logout()
+        }
+        return Promise.reject(error)
       } else if (status === 403) {
         ElMessage.error('没有权限访问')
       } else if (status === 500) {
         ElMessage.error('服务器错误')
       } else {
+        // 检查业务错误码
+        const code = Number(data?.code)
+        if (code === 401) {
+          const userStore = useUserStore()
+          if (userStore.isLoggedIn) {
+            ElMessage.error('登录已过期，请重新登录')
+            userStore.logout()
+          }
+          return Promise.reject(error)
+        }
         ElMessage.error(data?.message || error.message || '请求失败')
       }
     } else {
