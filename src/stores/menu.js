@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getMenuTreeSimple } from '@/api/menu'
+import { getCurrentUserMenus } from '@/api/auth'
 
 /**
  * 菜单 Store
@@ -112,11 +112,11 @@ export const useMenuStore = defineStore('menu', {
 
   actions: {
     /**
-     * 获取菜单数据
+     * 获取当前用户的菜单数据
      */
     async fetchMenus() {
       try {
-        const res = await getMenuTreeSimple()
+        const res = await getCurrentUserMenus()
         if (res.code === '200' && res.data) {
           this.menuTree = res.data
           this.menuLoaded = true

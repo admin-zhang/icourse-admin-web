@@ -47,3 +47,25 @@ export function logout() {
   })
 }
 
+/**
+ * 获取当前登录用户的菜单树
+ * @returns {Promise} 返回当前用户的菜单树 List<SmsMenuVO>
+ */
+export function getCurrentUserMenus() {
+  return request({
+    url: '/sms/user/menus',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取当前登录用户信息（包括菜单、角色、权限）
+ * @returns {Promise} 返回 UserMenuVO { userId, username, nickName, roles, permissions, menus }
+ */
+export function getCurrentUserInfo() {
+  return request({
+    url: '/sms/user/info',
+    method: 'get'
+  })
+}
+
