@@ -4,7 +4,14 @@
       <template #header>
         <div class="card-header">
           <span>角色管理</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增角色</el-button>
+          <el-button 
+            type="primary" 
+            :icon="Plus" 
+            :disabled="!hasPermission('system:role:add')"
+            @click="handleAdd"
+          >
+            新增角色
+          </el-button>
         </div>
       </template>
 
@@ -60,9 +67,33 @@
         </el-table-column>
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="scope">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button type="warning" link :icon="Setting" @click="handleAssignMenu(scope.row)">分配菜单</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button 
+              type="primary" 
+              link 
+              :icon="Edit" 
+              :disabled="!hasPermission('system:role:edit')"
+              @click="handleEdit(scope.row)"
+            >
+              编辑
+            </el-button>
+            <el-button 
+              type="warning" 
+              link 
+              :icon="Setting" 
+              :disabled="!hasPermission('system:role:assign')"
+              @click="handleAssignMenu(scope.row)"
+            >
+              分配菜单
+            </el-button>
+            <el-button 
+              type="danger" 
+              link 
+              :icon="Delete" 
+              :disabled="!hasPermission('system:role:remove')"
+              @click="handleDelete(scope.row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -155,6 +186,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import { getRoleList, getRoleById, addRole, updateRole, deleteRole, assignRole } from '@/api/role'
 import { getMenuTreeSimple } from '@/api/menu'
+import { useMenuStore } from '@/stores/menu'
+
+const menuStore = useMenuStore()
+
+// 权限检查
+const hasPermission = (perm) => {
+  return menuStore.hasPermission(perm)
+}
 
 // 搜索表单
 const searchForm = reactive({

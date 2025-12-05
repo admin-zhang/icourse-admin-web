@@ -4,7 +4,14 @@
       <template #header>
         <div class="card-header">
           <span>管理员管理</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增管理员</el-button>
+          <el-button 
+            type="primary" 
+            :icon="Plus" 
+            :disabled="!hasPermission('system:admin:add')"
+            @click="handleAdd"
+          >
+            新增管理员
+          </el-button>
         </div>
       </template>
 
@@ -70,10 +77,42 @@
         </el-table-column>
         <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
-            <el-button type="primary" link :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button type="success" link :icon="UserFilled" @click="handleAssignRole(scope.row)">分配角色</el-button>
-            <el-button type="warning" link :icon="Key" @click="handleChangePassword(scope.row)">修改密码</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button 
+              type="primary" 
+              link 
+              :icon="Edit" 
+              :disabled="!hasPermission('system:admin:edit')"
+              @click="handleEdit(scope.row)"
+            >
+              编辑
+            </el-button>
+            <el-button 
+              type="success" 
+              link 
+              :icon="UserFilled" 
+              :disabled="!hasPermission('system:admin:edit')"
+              @click="handleAssignRole(scope.row)"
+            >
+              分配角色
+            </el-button>
+            <el-button 
+              type="warning" 
+              link 
+              :icon="Key" 
+              :disabled="!hasPermission('system:admin:edit')"
+              @click="handleChangePassword(scope.row)"
+            >
+              修改密码
+            </el-button>
+            <el-button 
+              type="danger" 
+              link 
+              :icon="Delete" 
+              :disabled="!hasPermission('system:admin:remove')"
+              @click="handleDelete(scope.row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -203,6 +242,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, Key, UserFilled } from '@element-plus/icons-vue'
 import { getAdminList, getAdminById, addAdmin, updateAdmin, deleteAdmin, changePassword } from '@/api/admin'
 import { getAllRoles, assignRole, getRolesByAdminId } from '@/api/role'
+import { useMenuStore } from '@/stores/menu'
+
+const menuStore = useMenuStore()
+
+// 权限检查
+const hasPermission = (perm) => {
+  return menuStore.hasPermission(perm)
+}
 
 // 搜索表单
 const searchForm = reactive({
