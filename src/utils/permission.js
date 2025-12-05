@@ -28,11 +28,27 @@ export function getPermissionKey(menuPath, action) {
  * 从菜单数据中查找权限标识
  * @param {string} menuPath - 菜单路径
  * @param {string} actionName - 操作名称，如 '新增'、'编辑'、'删除' 等
+ * @param {boolean} searchAllMenus - 是否在所有菜单中搜索（用于跨菜单查找权限）
  * @returns {string|null} 权限标识
  */
-export function findPermissionFromMenu(menuPath, actionName) {
+export function findPermissionFromMenu(menuPath, actionName, searchAllMenus = false) {
   const menuStore = useMenuStore()
   const menuList = menuStore.menuList || []
+  
+  // 如果 searchAllMenus 为 true，在所有菜单中搜索
+  if (searchAllMenus) {
+    for (const menu of menuList) {
+      if (menu.menuType === 'C' && menu.children) {
+        const button = menu.children.find(child => {
+          return child.menuType === 'F' && child.menuName?.includes(actionName)
+        })
+        if (button?.perms) {
+          return button.perms
+        }
+      }
+    }
+    return null
+  }
   
   // 找到对应的菜单项
   const menu = menuList.find(m => {

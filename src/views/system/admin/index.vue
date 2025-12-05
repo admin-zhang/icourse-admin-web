@@ -90,7 +90,7 @@
               type="success" 
               link 
               :icon="UserFilled" 
-              :disabled="!hasPermission('assign', '分配')"
+              :disabled="!hasAssignRolePermission()"
               @click="handleAssignRole(scope.row)"
             >
               分配角色
@@ -243,9 +243,34 @@ import { Plus, Search, Refresh, Edit, Delete, Key, UserFilled } from '@element-p
 import { getAdminList, getAdminById, addAdmin, updateAdmin, deleteAdmin, changePassword } from '@/api/admin'
 import { getAllRoles, assignRole, getRolesByAdminId } from '@/api/role'
 import { createPermissionChecker } from '@/utils/permission'
+import { useMenuStore } from '@/stores/menu'
+
+const menuStore = useMenuStore()
 
 // 创建权限检查函数（基于当前页面路径）
 const hasPermission = createPermissionChecker('/system/admin')
+
+// 检查角色分配权限（使用角色管理的权限）
+const hasAssignRolePermission = () => {
+  // 优先从角色管理菜单中查找"角色分配"权限
+  const roleMenu = menuStore.menuList.find(m => {
+    const path = m.path?.replace(/^\/+/, '').replace(/\/index$/, '') || ''
+    return path === 'system/role' && m.menuType === 'C'
+  })
+  
+  if (roleMenu?.children) {
+    const assignButton = roleMenu.children.find(child => {
+      return child.menuType === 'F' && child.menuName?.includes('分配')
+    })
+    
+    if (assignButton?.perms) {
+      return menuStore.hasPermission(assignButton.perms)
+    }
+  }
+  
+  // 如果没有找到，检查 system:role:assign 权限
+  return menuStore.hasPermission('system:role:assign')
+}
 
 // 搜索表单
 const searchForm = reactive({
