@@ -37,6 +37,7 @@ export const useMenuStore = defineStore('menu', {
           // 组件路径映射（用于动态导入，Vite 需要明确的导入路径）
           const componentMap = {
             'Dashboard': () => import('@/views/Dashboard.vue'),
+            'system/admin/index': () => import('@/views/system/admin/index.vue'),
             'system/user/index': () => import('@/views/system/user/index.vue'),
             'system/role/index': () => import('@/views/system/role/index.vue'),
             'system/menu/index': () => import('@/views/system/menu/index.vue'),
