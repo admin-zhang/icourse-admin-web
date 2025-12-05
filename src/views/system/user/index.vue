@@ -68,9 +68,10 @@
             {{ formatDate(scope.row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
             <el-button type="primary" link :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button type="success" link :icon="UserFilled" @click="handleAssignRole(scope.row)">分配角色</el-button>
             <el-button type="warning" link :icon="Key" @click="handleChangePassword(scope.row)">修改密码</el-button>
             <el-button type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
           </template>
@@ -163,14 +164,45 @@
         <el-button type="primary" @click="handlePasswordSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 分配角色对话框 -->
+    <el-dialog
+      v-model="roleDialogVisible"
+      title="分配角色"
+      width="600px"
+    >
+      <div class="role-assign-info">
+        <p><strong>管理员：</strong>{{ currentAdmin.userName }}（{{ currentAdmin.nickName }}）</p>
+      </div>
+      <el-divider />
+      <div class="role-list-container">
+        <el-checkbox-group v-model="selectedRoleIds" v-loading="roleLoading">
+          <el-checkbox
+            v-for="role in allRoles"
+            :key="role.id"
+            :label="role.id"
+            :disabled="role.status === 1"
+          >
+            <span>{{ role.roleName }}</span>
+            <el-tag v-if="role.status === 1" type="danger" size="small" style="margin-left: 8px">已停用</el-tag>
+          </el-checkbox>
+        </el-checkbox-group>
+        <el-empty v-if="!roleLoading && allRoles.length === 0" description="暂无可用角色" />
+      </div>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleRoleSubmit" :loading="roleSubmitting">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, Key } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, Key, UserFilled } from '@element-plus/icons-vue'
 import { getAdminList, getAdminById, addAdmin, updateAdmin, deleteAdmin, changePassword } from '@/api/admin'
+import { getAllRoles, assignRole, getRolesByAdminId } from '@/api/role'
 
 // 搜索表单
 const searchForm = reactive({
@@ -194,9 +226,17 @@ const pagination = reactive({
 // 对话框
 const dialogVisible = ref(false)
 const passwordDialogVisible = ref(false)
+const roleDialogVisible = ref(false)
 const dialogTitle = ref('新增管理员')
 const formRef = ref(null)
 const passwordFormRef = ref(null)
+
+// 分配角色相关
+const currentAdmin = ref({})
+const allRoles = ref([])
+const selectedRoleIds = ref([])
+const roleLoading = ref(false)
+const roleSubmitting = ref(false)
 
 // 表单数据
 const formData = reactive({
@@ -455,6 +495,51 @@ const handleDelete = async (row) => {
   }
 }
 
+// 分配角色
+const handleAssignRole = async (row) => {
+  currentAdmin.value = { ...row }
+  selectedRoleIds.value = []
+  roleDialogVisible.value = true
+  
+  // 加载所有角色
+  roleLoading.value = true
+  try {
+    const rolesRes = await getAllRoles()
+    if (rolesRes.code === '200' && rolesRes.data) {
+      allRoles.value = rolesRes.data
+    }
+    
+    // 加载当前管理员已分配的角色
+    const adminRolesRes = await getRolesByAdminId(row.id)
+    if (adminRolesRes.code === '200' && adminRolesRes.data) {
+      selectedRoleIds.value = adminRolesRes.data.map(role => role.id)
+    }
+  } catch (error) {
+    console.error('加载角色数据失败:', error)
+    ElMessage.error('加载角色数据失败')
+  } finally {
+    roleLoading.value = false
+  }
+}
+
+// 提交角色分配
+const handleRoleSubmit = async () => {
+  roleSubmitting.value = true
+  try {
+    await assignRole({
+      adminId: currentAdmin.value.id,
+      roleIds: selectedRoleIds.value
+    })
+    ElMessage.success('分配角色成功')
+    roleDialogVisible.value = false
+    fetchAdminList() // 刷新列表
+  } catch (error) {
+    console.error('分配角色失败:', error)
+  } finally {
+    roleSubmitting.value = false
+  }
+}
+
 // 对话框关闭
 const handleDialogClose = () => {
   formRef.value?.resetFields()
@@ -485,6 +570,35 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.role-assign-info {
+  margin-bottom: 10px;
+}
+
+.role-assign-info p {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.role-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.role-list-container :deep(.el-checkbox-group) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-list-container :deep(.el-checkbox) {
+  display: flex;
+  align-items: center;
+  height: auto;
+  line-height: normal;
 }
 </style>
 

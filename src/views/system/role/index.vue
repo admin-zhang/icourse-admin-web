@@ -140,7 +140,6 @@
         show-checkbox
         node-key="id"
         :default-checked-keys="checkedMenuKeys"
-        check-strictly
       />
       <template #footer>
         <el-button @click="menuDialogVisible = false">取消</el-button>
@@ -151,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import { getRoleList, getRoleById, addRole, updateRole, deleteRole, assignRole } from '@/api/role'
@@ -360,6 +359,12 @@ const handleAssignMenu = async (row) => {
       checkedMenuKeys.value = res.data.menuIds
     }
     menuDialogVisible.value = true
+    
+    // 等待DOM更新后设置选中状态
+    await nextTick()
+    if (menuTreeRef.value) {
+      menuTreeRef.value.setCheckedKeys(checkedMenuKeys.value)
+    }
   } catch (error) {
     console.error('获取角色菜单失败:', error)
     menuDialogVisible.value = true
@@ -394,17 +399,31 @@ const handleSubmit = async () => {
 const handleMenuSubmit = async () => {
   if (!menuTreeRef.value) return
   
+  // 获取所有选中的节点（包括半选状态的父节点）
   const checkedKeys = menuTreeRef.value.getCheckedKeys()
   const halfCheckedKeys = menuTreeRef.value.getHalfCheckedKeys()
-  const menuIds = [...checkedKeys, ...halfCheckedKeys]
+  
+  // 合并选中的节点和半选状态的父节点
+  // 半选状态的父节点表示部分子节点被选中，也需要包含在权限中
+  const menuIds = [...new Set([...checkedKeys, ...halfCheckedKeys])]
   
   try {
-    // 注意：这里需要根据实际的后端API调整
-    // 如果后端有分配菜单的接口，应该调用那个接口
-    // 目前 assignRole 是分配角色给管理员，不是分配菜单给角色
-    // 这里先使用 updateRole 来更新角色的菜单列表
+    // 获取当前角色的基本信息
+    const roleRes = await getRoleById(currentRoleId.value)
+    if (roleRes.code !== '200' || !roleRes.data) {
+      ElMessage.error('获取角色信息失败')
+      return
+    }
+    
+    // 更新角色信息，包括菜单权限
     await updateRole({
-      ...formData,
+      id: roleRes.data.id,
+      roleName: roleRes.data.roleName,
+      roleKey: roleRes.data.roleKey,
+      roleSort: roleRes.data.roleSort || 0,
+      dataScope: roleRes.data.dataScope || '1',
+      status: roleRes.data.status,
+      remark: roleRes.data.remark || '',
       menuIds: menuIds
     })
     ElMessage.success('分配菜单成功')
@@ -412,6 +431,7 @@ const handleMenuSubmit = async () => {
     fetchRoleList()
   } catch (error) {
     console.error('分配菜单失败:', error)
+    ElMessage.error('分配菜单失败')
   }
 }
 
