@@ -51,7 +51,10 @@
         <el-table-column prop="nickName" label="用户昵称" width="120" />
         <el-table-column label="头像" width="80">
           <template #default="scope">
-            <el-avatar :src="scope.row.icon" :size="40" />
+            <el-avatar 
+              :src="getUserAvatar(scope.row.avatar, scope.row.nickName || scope.row.userName)" 
+              :size="40"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="phoneNumber" label="手机号码" width="130" />
@@ -244,6 +247,7 @@ import { getAdminList, getAdminById, addAdmin, updateAdmin, deleteAdmin, changeP
 import { getAllRoles, assignRole, getRolesByAdminId } from '@/api/role'
 import { createPermissionChecker } from '@/utils/permission'
 import { useMenuStore } from '@/stores/menu'
+import { getUserAvatar } from '@/config/avatar'
 
 const menuStore = useMenuStore()
 
