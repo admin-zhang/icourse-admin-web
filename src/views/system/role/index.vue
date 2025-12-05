@@ -7,7 +7,7 @@
           <el-button 
             type="primary" 
             :icon="Plus" 
-            :disabled="!hasPermission('system:role:add')"
+            :disabled="!hasPermission('add', '新增')"
             @click="handleAdd"
           >
             新增角色
@@ -71,7 +71,7 @@
               type="primary" 
               link 
               :icon="Edit" 
-              :disabled="!hasPermission('system:role:edit')"
+              :disabled="!hasPermission('edit', '编辑')"
               @click="handleEdit(scope.row)"
             >
               编辑
@@ -80,7 +80,7 @@
               type="warning" 
               link 
               :icon="Setting" 
-              :disabled="!hasPermission('system:role:assign')"
+              :disabled="!hasPermission('assign', '分配')"
               @click="handleAssignMenu(scope.row)"
             >
               分配菜单
@@ -89,7 +89,7 @@
               type="danger" 
               link 
               :icon="Delete" 
-              :disabled="!hasPermission('system:role:remove')"
+              :disabled="!hasPermission('remove', '删除')"
               @click="handleDelete(scope.row)"
             >
               删除
@@ -186,14 +186,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, Setting } from '@element-plus/icons-vue'
 import { getRoleList, getRoleById, addRole, updateRole, deleteRole, assignRole } from '@/api/role'
 import { getMenuTreeSimple } from '@/api/menu'
-import { useMenuStore } from '@/stores/menu'
+import { createPermissionChecker } from '@/utils/permission'
 
-const menuStore = useMenuStore()
-
-// 权限检查
-const hasPermission = (perm) => {
-  return menuStore.hasPermission(perm)
-}
+// 创建权限检查函数（基于当前页面路径）
+const hasPermission = createPermissionChecker('/system/role')
 
 // 搜索表单
 const searchForm = reactive({

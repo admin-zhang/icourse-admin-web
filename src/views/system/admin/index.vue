@@ -7,7 +7,7 @@
           <el-button 
             type="primary" 
             :icon="Plus" 
-            :disabled="!hasPermission('system:admin:add')"
+            :disabled="!hasPermission('add', '新增')"
             @click="handleAdd"
           >
             新增管理员
@@ -81,7 +81,7 @@
               type="primary" 
               link 
               :icon="Edit" 
-              :disabled="!hasPermission('system:admin:edit')"
+              :disabled="!hasPermission('edit', '编辑')"
               @click="handleEdit(scope.row)"
             >
               编辑
@@ -90,7 +90,7 @@
               type="success" 
               link 
               :icon="UserFilled" 
-              :disabled="!hasPermission('system:admin:edit')"
+              :disabled="!hasPermission('assign', '分配')"
               @click="handleAssignRole(scope.row)"
             >
               分配角色
@@ -99,7 +99,7 @@
               type="warning" 
               link 
               :icon="Key" 
-              :disabled="!hasPermission('system:admin:edit')"
+              :disabled="!hasPermission('edit', '修改')"
               @click="handleChangePassword(scope.row)"
             >
               修改密码
@@ -108,7 +108,7 @@
               type="danger" 
               link 
               :icon="Delete" 
-              :disabled="!hasPermission('system:admin:remove')"
+              :disabled="!hasPermission('remove', '删除')"
               @click="handleDelete(scope.row)"
             >
               删除
@@ -242,14 +242,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, Key, UserFilled } from '@element-plus/icons-vue'
 import { getAdminList, getAdminById, addAdmin, updateAdmin, deleteAdmin, changePassword } from '@/api/admin'
 import { getAllRoles, assignRole, getRolesByAdminId } from '@/api/role'
-import { useMenuStore } from '@/stores/menu'
+import { createPermissionChecker } from '@/utils/permission'
 
-const menuStore = useMenuStore()
-
-// 权限检查
-const hasPermission = (perm) => {
-  return menuStore.hasPermission(perm)
-}
+// 创建权限检查函数（基于当前页面路径）
+const hasPermission = createPermissionChecker('/system/admin')
 
 // 搜索表单
 const searchForm = reactive({

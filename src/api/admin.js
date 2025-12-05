@@ -31,7 +31,7 @@ export function getAdminList(params, queryData = {}) {
  */
 export function getAdminById(id) {
   return request({
-    url: `/admin/${id}`,
+    url: `/sms/admin/${id}`,
     method: 'get'
   })
 }

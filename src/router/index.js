@@ -41,47 +41,69 @@ const router = createRouter({
 })
 
 // 动态添加路由
+// 注意：刷新页面时这个变量会重置为 false，所以需要检查路由是否真的存在
 let dynamicRoutesAdded = false
 
 /**
  * 添加动态路由
  */
 export function addDynamicRoutes() {
-  if (dynamicRoutesAdded) {
-    return
-  }
-  
   const menuStore = useMenuStore()
   const routes = menuStore.routes
   
-  if (routes && routes.length > 0) {
-    // 添加动态路由到布局路由下
-    routes.forEach(route => {
-      // 确保路径是相对路径（不以 / 开头）
-      const childPath = route.path.startsWith('/') ? route.path.substring(1) : route.path
-      
-      // 检查路由是否已存在（通过完整路径检查）
-      const fullPath = `/${childPath}`
-      const existingRoute = router.getRoutes().find(r => r.path === fullPath)
-      
-      if (!existingRoute) {
-        // 创建子路由配置，使用相对路径
-        const childRoute = {
-          ...route,
-          path: childPath
-        }
-        
-        try {
-          // 使用布局路由的名称添加子路由
-          router.addRoute('Layout', childRoute)
-        } catch (error) {
-          console.error('添加路由失败:', error, childRoute)
-        }
-      }
+  if (!routes || routes.length === 0) {
+    return
+  }
+  
+  // 检查是否所有路由都已添加
+  let allRoutesAdded = true
+  routes.forEach(route => {
+    const childPath = route.path.startsWith('/') ? route.path.substring(1) : route.path
+    const fullPath = `/${childPath}`
+    const existingRoute = router.getRoutes().find(r => {
+      // 检查是否是 Layout 的子路由
+      return r.path === fullPath || (r.path === childPath && r.parent?.name === 'Layout')
     })
     
-    dynamicRoutesAdded = true
+    if (!existingRoute) {
+      allRoutesAdded = false
+    }
+  })
+  
+  // 如果所有路由都已添加，直接返回
+  if (allRoutesAdded && dynamicRoutesAdded) {
+    return
   }
+  
+  // 添加动态路由到布局路由下
+  routes.forEach(route => {
+    // 确保路径是相对路径（不以 / 开头）
+    const childPath = route.path.startsWith('/') ? route.path.substring(1) : route.path
+    const fullPath = `/${childPath}`
+    
+    // 检查路由是否已存在
+    const existingRoute = router.getRoutes().find(r => {
+      return r.path === fullPath || (r.path === childPath && r.parent?.name === 'Layout')
+    })
+    
+    if (!existingRoute) {
+      // 创建子路由配置，使用相对路径
+      const childRoute = {
+        ...route,
+        path: childPath
+      }
+      
+      try {
+        // 使用布局路由的名称添加子路由
+        router.addRoute('Layout', childRoute)
+        console.log('添加动态路由:', fullPath)
+      } catch (error) {
+        console.error('添加路由失败:', error, childRoute)
+      }
+    }
+  })
+  
+  dynamicRoutesAdded = true
 }
 
 // 路由守卫
@@ -108,6 +130,11 @@ router.beforeEach(async (to, from, next) => {
       menuStore.restoreMenus()
       if (menuStore.menuLoaded) {
         addDynamicRoutes()
+        // 如果路由已添加，继续导航
+        if (to.path !== '/login') {
+          next(to.fullPath)
+          return
+        }
       }
       
       // 然后从服务器获取最新菜单数据
@@ -115,6 +142,12 @@ router.beforeEach(async (to, from, next) => {
       // 重新添加路由（确保使用最新数据）
       dynamicRoutesAdded = false
       addDynamicRoutes()
+      
+      // 路由添加完成后，重新导航到目标路由
+      if (to.path !== '/login') {
+        next(to.fullPath)
+        return
+      }
     } catch (error) {
       console.error('加载菜单失败:', error)
       
@@ -132,10 +165,30 @@ router.beforeEach(async (to, from, next) => {
         menuStore.restoreMenus()
       }
       addDynamicRoutes()
+      
+      // 如果路由已添加，继续导航
+      if (to.path !== '/login' && menuStore.menuLoaded) {
+        next(to.fullPath)
+        return
+      }
     }
-  } else if (userStore.isLoggedIn && menuStore.menuLoaded && !dynamicRoutesAdded) {
-    // 如果菜单已加载但路由未添加，添加路由
+  } else if (userStore.isLoggedIn && menuStore.menuLoaded) {
+    // 如果菜单已加载，确保路由已添加
     addDynamicRoutes()
+    
+    // 检查目标路由是否存在
+    const targetRoute = router.resolve(to.path)
+    if (targetRoute.name === 'NotFound' && to.path !== '/dashboard' && to.path !== '/') {
+      // 路由不存在，可能是动态路由还未添加，等待一下再检查
+      await new Promise(resolve => setTimeout(resolve, 100))
+      addDynamicRoutes()
+      const retryRoute = router.resolve(to.path)
+      if (retryRoute.name === 'NotFound') {
+        ElMessage.error('页面不存在')
+        next({ path: '/dashboard' })
+        return
+      }
+    }
   }
   
   // 检查权限
