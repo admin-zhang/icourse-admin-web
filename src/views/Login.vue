@@ -180,6 +180,8 @@ const handlePasswordLogin = async () => {
         router.push(redirect)
       } catch (error) {
         console.error('登录失败:', error)
+        const errorMessage = error.message || error.response?.data?.message || '登录失败，请检查用户名和密码'
+        ElMessage.error(errorMessage)
       } finally {
         loading.value = false
       }
@@ -224,11 +226,20 @@ const handleSmsLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        // 注意：短信登录需要使用 OAuth2 接口，这里暂时提示用户
-        ElMessage.warning('短信登录需要使用 OAuth2 接口，请使用用户名密码登录')
-        // TODO: 实现 OAuth2 短信登录
+        await userStore.loginBySms({
+          phone: smsForm.phone,
+          code: smsForm.code
+        })
+        
+        ElMessage.success('登录成功')
+        
+        // 跳转到之前访问的页面或首页
+        const redirect = route.query.redirect || '/'
+        router.push(redirect)
       } catch (error) {
         console.error('登录失败:', error)
+        const errorMessage = error.message || error.response?.data?.message || '登录失败，请检查验证码是否正确'
+        ElMessage.error(errorMessage)
       } finally {
         loading.value = false
       }

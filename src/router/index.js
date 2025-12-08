@@ -123,6 +123,11 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
+  // 如果已登录，设置Token自动刷新
+  if (userStore.isLoggedIn) {
+    userStore.checkAndRefreshToken()
+  }
+  
   // 如果已登录但菜单未加载，尝试加载菜单
   if (userStore.isLoggedIn && !menuStore.menuLoaded) {
     try {
@@ -151,12 +156,25 @@ router.beforeEach(async (to, from, next) => {
     } catch (error) {
       console.error('加载菜单失败:', error)
       
-      // 如果错误是401，说明token过期，需要退出登录
+      // 如果错误是401，说明token过期，尝试刷新Token
       if (error.response?.status === 401 || error.response?.data?.code === 401 || Number(error.response?.data?.code) === 401) {
         if (userStore.isLoggedIn) {
-          await userStore.logout()
-          next({ path: '/login', query: { redirect: to.fullPath } })
-          return
+          try {
+            await userStore.refreshToken()
+            // 刷新成功，重试加载菜单
+            await menuStore.fetchMenus()
+            dynamicRoutesAdded = false
+            addDynamicRoutes()
+            if (to.path !== '/login') {
+              next(to.fullPath)
+              return
+            }
+          } catch (refreshError) {
+            // 刷新失败，退出登录
+            await userStore.logout()
+            next({ path: '/login', query: { redirect: to.fullPath } })
+            return
+          }
         }
       }
       

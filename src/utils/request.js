@@ -16,9 +16,15 @@ const service = axios.create({
 service.interceptors.request.use(
   (config) => {
     const userStore = useUserStore()
-    // 如果有 token，添加到请求头
-    if (userStore.token) {
-      config.headers.Authorization = `${userStore.token}`
+    // 优先从localStorage读取token（确保同步），如果没有则从store读取
+    let token = localStorage.getItem('admin_token') || userStore.token
+    // 如果有 token，添加到请求头（添加 Bearer 前缀）
+    if (token) {
+      // 如果token已经包含Bearer前缀，直接使用；否则添加Bearer前缀
+      token = token.startsWith('Bearer ') 
+        ? token 
+        : `Bearer ${token}`
+      config.headers.Authorization = token
     }
     return config
   },
@@ -27,6 +33,11 @@ service.interceptors.request.use(
     return Promise.reject(error)
   }
 )
+
+// 是否正在刷新Token
+let isRefreshing = false
+// 等待刷新Token的请求队列
+let requests = []
 
 // 响应拦截器
 service.interceptors.response.use(
@@ -38,18 +49,49 @@ service.interceptors.response.use(
     
     // 如果响应状态码不是 200，说明有错误
     if (code !== 200) {
-      // 如果是 401 未授权，先处理退出逻辑
-      if (code === 401) {
+      // 如果是 401 未授权，尝试刷新Token（排除刷新Token接口本身和登录接口）
+      if (code === 401 && response.config && 
+          !response.config.url.includes('/auth/refresh') &&
+          !response.config.url.includes('/auth/login')) {
         const userStore = useUserStore()
-        // 避免重复提示
-        if (userStore.isLoggedIn) {
-          ElMessage.error('登录已过期，请重新登录')
-          userStore.logout()
+        const config = response.config
+        
+        // 如果正在刷新Token，将请求加入队列
+        if (isRefreshing) {
+          return new Promise((resolve) => {
+            requests.push(() => {
+              resolve(service(config))
+            })
+          })
         }
-        return Promise.reject(new Error('登录已过期'))
+        
+        // 尝试刷新Token
+        isRefreshing = true
+        return userStore.refreshToken()
+          .then(() => {
+            // 刷新成功，重新发送原请求
+            requests.forEach(cb => cb())
+            requests = []
+            return service(config)
+          })
+          .catch(() => {
+            // 刷新失败，退出登录
+            requests = []
+            if (userStore.isLoggedIn) {
+              ElMessage.error('登录已过期，请重新登录')
+              userStore.logout()
+            }
+            return Promise.reject(new Error('登录已过期'))
+          })
+          .finally(() => {
+            isRefreshing = false
+          })
       }
       
-      ElMessage.error(res.message || '请求失败')
+      // 登录接口的错误不在这里显示，由登录页面自己处理
+      if (!response.config.url.includes('/auth/login')) {
+        ElMessage.error(res.message || '请求失败')
+      }
       return Promise.reject(new Error(res.message || '请求失败'))
     }
     
@@ -59,16 +101,51 @@ service.interceptors.response.use(
     console.error('响应错误:', error)
     
     if (error.response) {
-      const { status, data } = error.response
+      const { status, data, config } = error.response
       
       if (status === 401) {
         const userStore = useUserStore()
-        // 避免重复提示和重复跳转
-        if (userStore.isLoggedIn) {
-          ElMessage.error('登录已过期，请重新登录')
-          userStore.logout()
+        
+        // 排除刷新Token接口本身，避免无限循环
+        if (config && config.url && config.url.includes('/auth/refresh')) {
+          // 刷新Token接口返回401，说明Token确实无效，直接退出登录
+          if (userStore.isLoggedIn) {
+            ElMessage.error('登录已过期，请重新登录')
+            userStore.logout()
+          }
+          return Promise.reject(error)
         }
-        return Promise.reject(error)
+        
+        // 如果正在刷新Token，将请求加入队列
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            requests.push(() => {
+              resolve(service(config))
+            })
+          })
+        }
+        
+        // 尝试刷新Token
+        isRefreshing = true
+        return userStore.refreshToken()
+          .then(() => {
+            // 刷新成功，重新发送原请求
+            requests.forEach(cb => cb())
+            requests = []
+            return service(config)
+          })
+          .catch(() => {
+            // 刷新失败，退出登录
+            requests = []
+            if (userStore.isLoggedIn) {
+              ElMessage.error('登录已过期，请重新登录')
+              userStore.logout()
+            }
+            return Promise.reject(error)
+          })
+          .finally(() => {
+            isRefreshing = false
+          })
       } else if (status === 403) {
         ElMessage.error('没有权限访问')
       } else if (status === 500) {
@@ -78,11 +155,48 @@ service.interceptors.response.use(
         const code = Number(data?.code)
         if (code === 401) {
           const userStore = useUserStore()
-          if (userStore.isLoggedIn) {
-            ElMessage.error('登录已过期，请重新登录')
-            userStore.logout()
+          const config = error.config
+          
+          // 排除刷新Token接口本身，避免无限循环
+          if (config && config.url && config.url.includes('/auth/refresh')) {
+            // 刷新Token接口返回401，说明Token确实无效，直接退出登录
+            if (userStore.isLoggedIn) {
+              ElMessage.error('登录已过期，请重新登录')
+              userStore.logout()
+            }
+            return Promise.reject(error)
           }
-          return Promise.reject(error)
+          
+          // 如果正在刷新Token，将请求加入队列
+          if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+              requests.push(() => {
+                resolve(service(config))
+              })
+            })
+          }
+          
+          // 尝试刷新Token
+          isRefreshing = true
+          return userStore.refreshToken()
+            .then(() => {
+              // 刷新成功，重新发送原请求
+              requests.forEach(cb => cb())
+              requests = []
+              return service(config)
+            })
+            .catch(() => {
+              // 刷新失败，退出登录
+              requests = []
+              if (userStore.isLoggedIn) {
+                ElMessage.error('登录已过期，请重新登录')
+                userStore.logout()
+              }
+              return Promise.reject(error)
+            })
+            .finally(() => {
+              isRefreshing = false
+            })
         }
         ElMessage.error(data?.message || error.message || '请求失败')
       }

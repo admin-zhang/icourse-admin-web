@@ -6,6 +6,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
+import { useUserStore } from './stores/user'
 
 const app = createApp(App)
 
@@ -14,9 +15,13 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
+// 应用启动后，初始化用户Store（恢复Token刷新定时器）
 app.mount('#app')
+const userStore = useUserStore()
+userStore.init()
 

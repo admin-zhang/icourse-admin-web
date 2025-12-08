@@ -3,6 +3,17 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+
+// 应用启动时，如果已登录，设置Token自动刷新
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    userStore.checkAndRefreshToken()
+  }
+})
 </script>
 
 <style>
