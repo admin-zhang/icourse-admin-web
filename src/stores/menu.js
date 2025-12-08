@@ -41,6 +41,7 @@ export const useMenuStore = defineStore('menu', {
             'system/user/index': () => import('@/views/system/user/index.vue'),
             'system/role/index': () => import('@/views/system/role/index.vue'),
             'system/menu/index': () => import('@/views/system/menu/index.vue'),
+            'system/tenant/index': () => import('@/views/system/tenant/index.vue'),
             'monitor/operlog/index': () => import('@/views/monitor/operlog/index.vue'),
             'monitor/server/index': () => import('@/views/monitor/server/index.vue'),
             'monitor/jvm/index': () => import('@/views/monitor/jvm/index.vue'),
