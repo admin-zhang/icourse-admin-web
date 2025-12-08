@@ -12,6 +12,12 @@ const constantRoutes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/auth/third-party/callback/:type',
+    name: 'ThirdPartyCallback',
+    component: () => import('@/views/ThirdPartyCallback.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/',
     name: 'Layout',
     component: () => import('@/layout/Index.vue'),
