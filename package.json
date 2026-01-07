@@ -5,7 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "husky",
+    "commit": "cz"
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-git"
+    }
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -17,7 +24,12 @@
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
+    "@commitlint/config-conventional": "^20.3.0",
     "@vitejs/plugin-vue": "^4.5.2",
+    "commitizen": "^4.3.1",
+    "commitlint": "^20.3.0",
+    "cz-git": "^1.12.0",
+    "husky": "^9.1.7",
     "vite": "^5.0.8"
   }
 }
