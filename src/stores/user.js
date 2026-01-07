@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { loginByPassword, logout as logoutApi, getCurrentUserInfo, refreshToken as refreshTokenApi, getPublicKey, bindThirdParty } from '@/api/auth'
 import { useMenuStore } from '@/stores/menu'
 import router from '@/router'
+import { resetDynamicRoutes } from '@/router'
 import rsaUtil from '@/utils/rsa'
 import { ElMessage } from 'element-plus'
 
@@ -22,6 +23,36 @@ export const useUserStore = defineStore('user', {
   },
 
   actions: {
+    // 初始化：检查状态一致性
+    init() {
+      // 如果 token 存在但用户信息缺失，清除状态
+      if (this.token && (!this.userId || !this.username)) {
+        console.warn('应用启动时检测到状态不一致：token 存在但用户信息缺失，清除状态')
+        this.token = ''
+        this.userId = ''
+        this.username = ''
+        this.nickName = ''
+        this.expiresIn = ''
+        this.roles = []
+        this.permissions = []
+        
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_userId')
+        localStorage.removeItem('admin_username')
+        localStorage.removeItem('admin_nickName')
+        localStorage.removeItem('admin_expiresIn')
+        localStorage.removeItem('admin_roles')
+        localStorage.removeItem('admin_permissions')
+        
+        // 清除菜单数据
+        const menuStore = useMenuStore()
+        menuStore.clearMenus()
+      } else if (this.token && this.userId && this.username) {
+        // 如果状态完整，设置Token自动刷新
+        this.checkAndRefreshToken()
+      }
+    },
+
     // 登录
     async login(loginForm) {
       try {
@@ -227,7 +258,8 @@ export const useUserStore = defineStore('user', {
     // 退出登录
     async logout() {
       // 先清除本地状态，避免重复调用
-      if (!this.token) {
+      const hasToken = this.token || localStorage.getItem('admin_token')
+      if (!hasToken) {
         return
       }
       
@@ -248,6 +280,7 @@ export const useUserStore = defineStore('user', {
         this.roles = []
         this.permissions = []
         
+        // 清除所有 localStorage 中的用户相关数据
         localStorage.removeItem('admin_token')
         localStorage.removeItem('admin_userId')
         localStorage.removeItem('admin_username')
@@ -259,6 +292,9 @@ export const useUserStore = defineStore('user', {
         // 清除菜单数据
         const menuStore = useMenuStore()
         menuStore.clearMenus()
+        
+        // 重置动态路由标志，强制重新检查
+        resetDynamicRoutes()
         
         // 清除Token自动刷新定时器
         if (this.refreshTimer) {

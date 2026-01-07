@@ -32,12 +32,12 @@ const constantRoutes = [
       }
     ]
   },
-  // 404 页面
+  // 404 页面（只有已登录用户才能看到404页面）
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/Dashboard.vue'),
-    meta: { title: '页面不存在' }
+    meta: { title: '页面不存在', requiresAuth: true }
   }
 ]
 
@@ -49,6 +49,13 @@ const router = createRouter({
 // 动态添加路由
 // 注意：刷新页面时这个变量会重置为 false，所以需要检查路由是否真的存在
 let dynamicRoutesAdded = false
+
+/**
+ * 重置动态路由标志（退出登录时调用）
+ */
+export function resetDynamicRoutes() {
+  dynamicRoutesAdded = false
+}
 
 /**
  * 添加动态路由
@@ -117,25 +124,74 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   const menuStore = useMenuStore()
   
+  // 检查登录状态：不仅要有 token，还要有用户信息（userId 和 username）
+  // 同时检查 localStorage，确保状态同步
+  const tokenFromStorage = localStorage.getItem('admin_token')
+  const userIdFromStorage = localStorage.getItem('admin_userId')
+  const usernameFromStorage = localStorage.getItem('admin_username')
+  
+  const isAuthenticated = !!(
+    tokenFromStorage && 
+    userIdFromStorage && 
+    usernameFromStorage &&
+    userStore.token &&
+    userStore.userId &&
+    userStore.username
+  )
+  
+  // 如果 token 存在但用户信息不完整，说明状态不一致，清除状态
+  if ((tokenFromStorage || userStore.token) && (!userIdFromStorage || !usernameFromStorage || !userStore.userId || !userStore.username)) {
+    console.warn('检测到状态不一致：token 存在但用户信息缺失，清除状态')
+    await userStore.logout()
+    if (to.path !== '/login') {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
+    }
+  }
+  
   // 如果访问登录页且已登录，跳转到首页
-  if (to.path === '/login' && userStore.isLoggedIn) {
+  if (to.path === '/login' && isAuthenticated) {
     next({ path: '/' })
     return
   }
   
+  // 检查路由是否需要认证
+  // 对于动态路由，如果用户未登录，应该跳转到登录页
+  // 对于 NotFound 路由，如果用户未登录且不是访问登录页，也应该跳转到登录页
+  const requiresAuth = to.meta?.requiresAuth !== false
+  
   // 如果需要登录但未登录，跳转到登录页
-  if (to.meta.requiresAuth && !userStore.isLoggedIn) {
+  if (requiresAuth && !isAuthenticated) {
+    console.log('路由守卫拦截：需要认证但未登录', {
+      path: to.path,
+      requiresAuth,
+      isAuthenticated,
+      hasToken: !!(tokenFromStorage || userStore.token),
+      hasUserId: !!(userIdFromStorage || userStore.userId),
+      hasUsername: !!(usernameFromStorage || userStore.username)
+    })
+    
+    // 如果 token 存在但用户信息缺失，清除状态
+    if (tokenFromStorage || userStore.token) {
+      await userStore.logout()
+    }
+    // 如果访问的是登录页，直接允许
+    if (to.path === '/login') {
+      next()
+      return
+    }
+    // 否则跳转到登录页
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
   
   // 如果已登录，设置Token自动刷新
-  if (userStore.isLoggedIn) {
+  if (isAuthenticated) {
     userStore.checkAndRefreshToken()
   }
   
   // 如果已登录但菜单未加载，尝试加载菜单
-  if (userStore.isLoggedIn && !menuStore.menuLoaded) {
+  if (isAuthenticated && !menuStore.menuLoaded) {
     try {
       // 先尝试从 localStorage 恢复（快速显示）
       menuStore.restoreMenus()
@@ -164,7 +220,7 @@ router.beforeEach(async (to, from, next) => {
       
       // 如果错误是401，说明token过期，尝试刷新Token
       if (error.response?.status === 401 || error.response?.data?.code === 401 || Number(error.response?.data?.code) === 401) {
-        if (userStore.isLoggedIn) {
+        if (isAuthenticated) {
           try {
             await userStore.refreshToken()
             // 刷新成功，重试加载菜单
@@ -196,7 +252,7 @@ router.beforeEach(async (to, from, next) => {
         return
       }
     }
-  } else if (userStore.isLoggedIn && menuStore.menuLoaded) {
+  } else if (isAuthenticated && menuStore.menuLoaded) {
     // 如果菜单已加载，确保路由已添加
     addDynamicRoutes()
     
