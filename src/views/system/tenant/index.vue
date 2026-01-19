@@ -185,14 +185,23 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="统一社会信用代码" prop="licenseNo">
-              <el-input v-model="formData.licenseNo" placeholder="请输入统一社会信用代码" />
+              <el-input v-model="formData.licenseNo" placeholder="请输入统一社会信用代码" maxlength="18" />
             </el-form-item>
           </el-col>
         </el-row>
         
-        <el-form-item label="公司地址" prop="address">
-          <el-input v-model="formData.address" placeholder="请输入公司地址" />
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="公司地址" prop="address">
+              <el-input v-model="formData.address" placeholder="请输入公司地址" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="企业规模" prop="scale">
+              <el-input v-model="formData.scale" placeholder="请输入企业规模" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         
         <el-row :gutter="20">
           <el-col :span="12">
@@ -201,9 +210,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="企业规模" prop="scale">
-              <el-input v-model="formData.scale" placeholder="请输入企业规模" />
-            </el-form-item>
+            <!-- 占位，保持布局对齐 -->
           </el-col>
         </el-row>
         
@@ -333,6 +340,9 @@ const formRules = {
   ],
   contactEmail: [
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  licenseNo: [
+    { pattern: /^[0-9A-HJ-NPQRTUWXY]{2}\d{6}[0-9A-HJ-NPQRTUWXY]{10}$/, message: '请输入正确的统一社会信用代码（18位）', trigger: 'blur' }
   ]
 }
 
@@ -615,6 +625,11 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 调整表单标签的 padding */
+:deep(.el-form-item__label) {
+  padding: 0 4px 0 0 !important;
 }
 </style>
 
