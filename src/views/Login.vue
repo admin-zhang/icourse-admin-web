@@ -217,15 +217,15 @@ const passwordRules = {
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
   agreed: [
-    { 
+    {
       validator: (rule, value, callback) => {
         if (!value) {
           callback(new Error('请先阅读并同意用户协议和隐私政策'))
         } else {
           callback()
         }
-      }, 
-      trigger: 'change' 
+      },
+      trigger: 'change'
     }
   ]
 }
@@ -372,7 +372,9 @@ const handlePasswordLogin = async () => {
         router.push(redirect)
       } catch (error) {
         console.error('登录失败:', error)
-        const errorMessage = error.message || error.response?.data?.message || '登录失败，请检查用户名和密码'
+        // 提取错误信息，优先使用 msg，兼容 message
+        const errorData = error.response?.data || {}
+        const errorMessage = errorData.msg || errorData.message || error.message || '登录失败，请检查用户名和密码'
         ElMessage.error(errorMessage)
       } finally {
         loading.value = false
@@ -435,7 +437,9 @@ const handleSmsLogin = async () => {
         router.push(redirect)
       } catch (error) {
         console.error('登录失败:', error)
-        const errorMessage = error.message || error.response?.data?.message || '登录失败，请检查验证码是否正确'
+        // 提取错误信息，优先使用 msg，兼容 message
+        const errorData = error.response?.data || {}
+        const errorMessage = errorData.msg || errorData.message || error.message || '登录失败，请检查验证码是否正确'
         ElMessage.error(errorMessage)
       } finally {
         loading.value = false

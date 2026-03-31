@@ -109,7 +109,16 @@
           <el-input v-model="formData.userName" placeholder="请输入用户账号" />
         </el-form-item>
         <el-form-item v-if="!formData.id" label="密码" prop="passWord">
-          <el-input v-model="formData.passWord" type="password" placeholder="请输入密码" show-password />
+          <el-input v-model="formData.passWord" type="password" placeholder="请输入密码" show-password @input="checkAddPasswordStrength" />
+          <div class="password-strength" v-if="formData.passWord">
+            <div class="strength-bar">
+              <div class="strength-level" :class="['level-' + addPasswordStrength.level]"></div>
+            </div>
+            <div class="strength-text">{{ addPasswordStrength.text }}</div>
+          </div>
+          <div class="password-rule">
+            <span>密码规则：至少包含数字、字母、特殊字符中的两种，长度不超过16个字符</span>
+          </div>
         </el-form-item>
         <el-form-item label="用户昵称" prop="nickName">
           <el-input v-model="formData.nickName" placeholder="请输入用户昵称" />
@@ -156,7 +165,19 @@
           <el-input v-model="passwordForm.oldPassWord" type="password" placeholder="请输入原密码" show-password />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassWord">
-          <el-input v-model="passwordForm.newPassWord" type="password" placeholder="请输入新密码" show-password />
+          <el-input v-model="passwordForm.newPassWord" type="password" placeholder="请输入新密码" show-password @input="checkPasswordStrength" />
+          <div class="password-strength" v-if="passwordForm.newPassWord">
+            <div class="strength-bar">
+              <div class="strength-level" :class="['level-' + passwordStrength.level]"></div>
+            </div>
+            <div class="strength-text">{{ passwordStrength.text }}</div>
+          </div>
+          <div class="password-rule">
+            <span>密码规则：至少包含数字、字母、特殊字符中的两种，长度不超过16个字符</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请确认新密码" show-password />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -169,29 +190,69 @@
     <el-dialog
       v-model="roleDialogVisible"
       title="分配角色"
-      width="600px"
+      width="650px"
+      :before-close="handleRoleDialogClose"
     >
-      <div class="role-assign-info">
-        <p><strong>管理员：</strong>{{ currentAdmin.userName }}（{{ currentAdmin.nickName }}）</p>
+      <div class="role-assign-header">
+        <div class="role-assign-info">
+          <h3>管理员信息</h3>
+          <p class="admin-name">{{ currentAdmin.userName }} <span class="admin-nickname">{{ currentAdmin.nickName }}</span></p>
+        </div>
       </div>
-      <el-divider />
+      
       <div class="role-list-container">
-        <el-checkbox-group v-model="selectedRoleIds" v-loading="roleLoading">
-          <el-checkbox
-            v-for="role in allRoles"
-            :key="role.id"
-            :label="role.id"
-            :disabled="role.status === 1"
+        <div class="role-list-header">
+          <h4>可选角色</h4>
+          <el-button 
+            type="text" 
+            size="small" 
+            @click="toggleSelectAll"
+            :disabled="allRoles.length === 0 || roleLoading"
           >
-            <span>{{ role.roleName }}</span>
-            <el-tag v-if="role.status === 1" type="danger" size="small" style="margin-left: 8px">已停用</el-tag>
-          </el-checkbox>
-        </el-checkbox-group>
+            {{ isAllSelected ? '取消全选' : '全选' }}
+          </el-button>
+        </div>
+        
+        <div class="role-grid" v-loading="roleLoading">
+          <div 
+            v-for="role in allRoles" 
+            :key="role.id"
+            class="role-card"
+            :class="{ 'role-disabled': role.status === 1 }"
+          >
+            <el-checkbox
+              :checked="getRoleChecked(role.id)"
+              :disabled="role.status === 1"
+              @change="handleRoleChange(role.id, $event)"
+              class="role-checkbox"
+            />
+            <div class="role-info">
+              <div class="role-name">{{ role.roleName }}</div>
+              <el-tag 
+                v-if="role.status === 1" 
+                type="danger" 
+                size="small"
+                class="role-status-tag"
+              >
+                已停用
+              </el-tag>
+            </div>
+          </div>
+        </div>
+        
         <el-empty v-if="!roleLoading && allRoles.length === 0" description="暂无可用角色" />
       </div>
+      
       <template #footer>
         <el-button @click="roleDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleRoleSubmit" :loading="roleSubmitting">确定</el-button>
+        <el-button 
+          type="primary" 
+          @click="handleRoleSubmit" 
+          :loading="roleSubmitting"
+          :disabled="selectedRoleIds.length === 0"
+        >
+          确定（{{ selectedRoleIds.length }}）
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -237,6 +298,7 @@ const allRoles = ref([])
 const selectedRoleIds = ref([])
 const roleLoading = ref(false)
 const roleSubmitting = ref(false)
+const isAllSelected = ref(false)
 
 // 表单数据
 const formData = reactive({
@@ -254,8 +316,89 @@ const formData = reactive({
 const passwordForm = reactive({
   id: null,
   oldPassWord: '',
-  newPassWord: ''
+  newPassWord: '',
+  confirmPassword: ''
 })
+
+// 密码强度
+const passwordStrength = ref({
+  level: 0,
+  text: ''
+})
+
+// 新增管理员密码强度
+const addPasswordStrength = ref({
+  level: 0,
+  text: ''
+})
+
+// 检查密码强度
+const checkPasswordStrength = (value) => {
+  if (!value) {
+    passwordStrength.value = { level: 0, text: '' }
+    return
+  }
+  
+  // 检查是否包含数字
+  const hasDigit = /\d/.test(value)
+  // 检查是否包含字母
+  const hasLetter = /[a-zA-Z]/.test(value)
+  // 检查是否包含特殊字符
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':\",.<>?]/.test(value)
+  // 计算强度级别
+  const strengthCount = [hasDigit, hasLetter, hasSpecial].filter(Boolean).length
+  
+  let level, text
+  if (strengthCount === 0) {
+    level = 0
+    text = '密码强度：弱'
+  } else if (strengthCount === 1) {
+    level = 1
+    text = '密码强度：弱'
+  } else if (strengthCount === 2) {
+    level = 2
+    text = '密码强度：中'
+  } else {
+    level = 3
+    text = '密码强度：强'
+  }
+  
+  passwordStrength.value = { level, text }
+}
+
+// 检查新增管理员密码强度
+const checkAddPasswordStrength = (value) => {
+  if (!value) {
+    addPasswordStrength.value = { level: 0, text: '' }
+    return
+  }
+  
+  // 检查是否包含数字
+  const hasDigit = /\d/.test(value)
+  // 检查是否包含字母
+  const hasLetter = /[a-zA-Z]/.test(value)
+  // 检查是否包含特殊字符
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':\",.<>?]/.test(value)
+  // 计算强度级别
+  const strengthCount = [hasDigit, hasLetter, hasSpecial].filter(Boolean).length
+  
+  let level, text
+  if (strengthCount === 0) {
+    level = 0
+    text = '密码强度：弱'
+  } else if (strengthCount === 1) {
+    level = 1
+    text = '密码强度：弱'
+  } else if (strengthCount === 2) {
+    level = 2
+    text = '密码强度：中'
+  } else {
+    level = 3
+    text = '密码强度：强'
+  }
+  
+  addPasswordStrength.value = { level, text }
+}
 
 // 表单验证规则
 const formRules = {
@@ -269,7 +412,25 @@ const formRules = {
   ],
   passWord: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { max: 16, message: '密码最大长度要小于16', trigger: 'blur' }
+    { max: 16, message: '密码最大长度要小于16', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        // 检查是否包含数字
+        const hasDigit = /\d/.test(value);
+        // 检查是否包含字母
+        const hasLetter = /[a-zA-Z]/.test(value);
+        // 检查是否包含特殊字符
+        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':\",.<>?]/.test(value);
+        // 至少满足其中两种
+        const valid = [hasDigit, hasLetter, hasSpecial].filter(Boolean).length >= 2;
+        if (!valid) {
+          callback(new Error('密码至少包含数字、字母、特殊字符中的两种'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -280,7 +441,38 @@ const passwordRules = {
   ],
   newPassWord: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { max: 16, message: '密码最大长度要小于16', trigger: 'blur' }
+    { max: 16, message: '密码最大长度要小于16', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        // 检查是否包含数字
+        const hasDigit = /\d/.test(value);
+        // 检查是否包含字母
+        const hasLetter = /[a-zA-Z]/.test(value);
+        // 检查是否包含特殊字符
+        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':\",.<>?]/.test(value);
+        // 至少满足其中两种
+        const valid = [hasDigit, hasLetter, hasSpecial].filter(Boolean).length >= 2;
+        if (!valid) {
+          callback(new Error('密码至少包含数字、字母、特殊字符中的两种'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== passwordForm.newPassWord) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -418,6 +610,7 @@ const handleChangePassword = (row) => {
   passwordForm.id = row.id
   passwordForm.oldPassWord = ''
   passwordForm.newPassWord = ''
+  passwordForm.confirmPassword = ''
   passwordDialogVisible.value = true
 }
 
@@ -514,12 +707,59 @@ const handleAssignRole = async (row) => {
     if (adminRolesRes.code === '200' && adminRolesRes.data) {
       selectedRoleIds.value = adminRolesRes.data.map(role => role.id)
     }
+    
+    // 更新全选状态
+    updateAllSelectedStatus()
   } catch (error) {
     console.error('加载角色数据失败:', error)
     ElMessage.error('加载角色数据失败')
   } finally {
     roleLoading.value = false
   }
+}
+
+// 获取角色选中状态
+const getRoleChecked = (roleId) => {
+  return selectedRoleIds.value.includes(roleId)
+}
+
+// 处理角色选择变化
+const handleRoleChange = (roleId, checked) => {
+  if (checked) {
+    if (!selectedRoleIds.value.includes(roleId)) {
+      selectedRoleIds.value.push(roleId)
+    }
+  } else {
+    selectedRoleIds.value = selectedRoleIds.value.filter(id => id !== roleId)
+  }
+  updateAllSelectedStatus()
+}
+
+// 更新全选状态
+const updateAllSelectedStatus = () => {
+  const enabledRoles = allRoles.value.filter(role => role.status !== 1)
+  isAllSelected.value = enabledRoles.length > 0 && enabledRoles.every(role => selectedRoleIds.value.includes(role.id))
+}
+
+// 切换全选
+const toggleSelectAll = () => {
+  const enabledRoles = allRoles.value.filter(role => role.status !== 1)
+  if (isAllSelected.value) {
+    // 取消全选
+    selectedRoleIds.value = selectedRoleIds.value.filter(id => {
+      return !enabledRoles.some(role => role.id === id)
+    })
+  } else {
+    // 全选
+    const enabledRoleIds = enabledRoles.map(role => role.id)
+    selectedRoleIds.value = [...new Set([...selectedRoleIds.value, ...enabledRoleIds])]
+  }
+  isAllSelected.value = !isAllSelected.value
+}
+
+// 角色对话框关闭
+const handleRoleDialogClose = () => {
+  // 可以在这里添加清理逻辑
 }
 
 // 提交角色分配
@@ -572,14 +812,32 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.role-assign-info {
-  margin-bottom: 10px;
+.role-assign-header {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.role-assign-info p {
-  margin: 0;
+.role-assign-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.admin-name {
   font-size: 14px;
   color: #606266;
+  margin: 0;
+}
+
+.admin-nickname {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background-color: #f9f9f9;
+  border-radius: 10px;
 }
 
 .role-list-container {
@@ -588,17 +846,151 @@ onMounted(() => {
   padding: 10px 0;
 }
 
-.role-list-container :deep(.el-checkbox-group) {
+.role-list-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.role-list-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
 }
 
-.role-list-container :deep(.el-checkbox) {
+.role-card {
   display: flex;
   align-items: center;
-  height: auto;
-  line-height: normal;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.role-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.role-card.role-disabled {
+  background-color: #f9f9f9;
+  cursor: not-allowed;
+}
+
+.role-card.role-disabled:hover {
+  border-color: #e4e7ed;
+  box-shadow: none;
+}
+
+.role-checkbox {
+  margin-right: 10px;
+}
+
+.role-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-name {
+  font-size: 14px;
+  color: #303133;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-status-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+
+/* 滚动条样式 */
+.role-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.role-list-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.role-list-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.role-list-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 密码强度样式 */
+.password-strength {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.strength-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.strength-level {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  border-radius: 3px;
+}
+
+.level-0 {
+  width: 0%;
+  background-color: #f56c6c;
+}
+
+.level-1 {
+  width: 33%;
+  background-color: #f56c6c;
+}
+
+.level-2 {
+  width: 66%;
+  background-color: #e6a23c;
+}
+
+.level-3 {
+  width: 100%;
+  background-color: #67c23a;
+}
+
+.strength-text {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.password-rule {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border-left: 3px solid #dcdfe6;
 }
 </style>
 

@@ -174,7 +174,6 @@
           {{ detailData.costTime ? `${detailData.costTime}ms` : '-' }}
         </el-descriptions-item>
         <el-descriptions-item label="操作时间">{{ formatDate(detailData.operTime) }}</el-descriptions-item>
-        <el-descriptions-item label="租户ID">{{ detailData.tenantId || '-' }}</el-descriptions-item>
         <el-descriptions-item label="请求URL" :span="2">{{ detailData.operUrl || '-' }}</el-descriptions-item>
         <el-descriptions-item label="请求方法" :span="2">{{ detailData.method || '-' }}</el-descriptions-item>
         <el-descriptions-item label="请求参数" :span="2">

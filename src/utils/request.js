@@ -50,11 +50,24 @@ service.interceptors.response.use(
     // 如果响应状态码不是 200，说明有错误
     if (code !== 200) {
       // 如果是 401 未授权，尝试刷新Token（排除刷新Token接口本身和登录接口）
-      if (code === 401 && response.config && 
-          !response.config.url.includes('/auth/refresh') &&
-          !response.config.url.includes('/auth/login')) {
+      if (code === 401 && response.config) {
         const userStore = useUserStore()
         const config = response.config
+        const url = config.url || ''
+        
+        // 排除登录相关接口和刷新Token接口，避免在登录失败时尝试刷新token
+        if (url.includes('/auth/refresh') || 
+            url.includes('/auth/login') || 
+            url.includes('/oauth2/token') ||
+            url.includes('/auth/sms/code')) {
+          // 登录相关接口返回401，直接返回错误，不尝试刷新token
+          return Promise.reject(new Error(res.message || '请求失败'))
+        }
+        
+        // 如果用户未登录，也不尝试刷新token
+        if (!userStore.isLoggedIn) {
+          return Promise.reject(new Error(res.message || '请求失败'))
+        }
         
         // 如果正在刷新Token，将请求加入队列
         if (isRefreshing) {
@@ -90,9 +103,12 @@ service.interceptors.response.use(
       
       // 登录接口的错误不在这里显示，由登录页面自己处理
       if (!response.config.url.includes('/auth/login')) {
-        ElMessage.error(res.message || '请求失败')
+        const errorMsg = res.msg || res.message || '请求失败'
+        ElMessage.error(errorMsg)
       }
-      return Promise.reject(new Error(res.message || '请求失败'))
+      // 提取错误信息，优先使用 msg，兼容 message
+      const errorMsg = res.msg || res.message || '请求失败'
+      return Promise.reject(new Error(errorMsg))
     }
     
     return res
@@ -105,14 +121,20 @@ service.interceptors.response.use(
       
       if (status === 401) {
         const userStore = useUserStore()
+        const url = config?.url || ''
         
-        // 排除刷新Token接口本身，避免无限循环
-        if (config && config.url && config.url.includes('/auth/refresh')) {
-          // 刷新Token接口返回401，说明Token确实无效，直接退出登录
-          if (userStore.isLoggedIn) {
-            ElMessage.error('登录已过期，请重新登录')
-            userStore.logout()
-          }
+        // 排除登录相关接口和刷新Token接口，避免在登录失败时尝试刷新token
+        if (url.includes('/auth/refresh') || 
+            url.includes('/auth/login') || 
+            url.includes('/oauth2/token') ||
+            url.includes('/auth/sms/code')) {
+          // 登录相关接口返回401，提取错误信息后返回错误，不尝试刷新token
+          const errorMsg = data?.msg || data?.message || error.message || '登录失败'
+          return Promise.reject(new Error(errorMsg))
+        }
+        
+        // 如果用户未登录，也不尝试刷新token
+        if (!userStore.isLoggedIn) {
           return Promise.reject(error)
         }
         
@@ -156,14 +178,20 @@ service.interceptors.response.use(
         if (code === 401) {
           const userStore = useUserStore()
           const config = error.config
+          const url = config?.url || ''
           
-          // 排除刷新Token接口本身，避免无限循环
-          if (config && config.url && config.url.includes('/auth/refresh')) {
-            // 刷新Token接口返回401，说明Token确实无效，直接退出登录
-            if (userStore.isLoggedIn) {
-              ElMessage.error('登录已过期，请重新登录')
-              userStore.logout()
-            }
+          // 排除登录相关接口和刷新Token接口，避免在登录失败时尝试刷新token
+          if (url.includes('/auth/refresh') || 
+              url.includes('/auth/login') || 
+              url.includes('/oauth2/token') ||
+              url.includes('/auth/sms/code')) {
+            // 登录相关接口返回401，提取错误信息后返回错误，不尝试刷新token
+            const errorMsg = data?.msg || data?.message || error.message || '登录失败'
+            return Promise.reject(new Error(errorMsg))
+          }
+          
+          // 如果用户未登录，也不尝试刷新token
+          if (!userStore.isLoggedIn) {
             return Promise.reject(error)
           }
           
@@ -198,7 +226,9 @@ service.interceptors.response.use(
               isRefreshing = false
             })
         }
-        ElMessage.error(data?.message || error.message || '请求失败')
+        // 提取错误信息，优先使用 msg，兼容 message
+        const errorMsg = data?.msg || data?.message || error.message || '请求失败'
+        ElMessage.error(errorMsg)
       }
     } else {
       ElMessage.error('网络错误，请检查网络连接')
