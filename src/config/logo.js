@@ -5,7 +5,7 @@
 
 export const logoConfig = {
   // Logo图片URL（支持相对路径和绝对路径）
-  // 相对路径示例：'/logo.png'（放在public目录下）
+  // 相对路径示例：'/logo1.png'（放在public目录下）
   // 绝对路径示例：'https://example.com/logo.png'
   url: '/logo.png', // 如果为空，则显示文字logo
   
