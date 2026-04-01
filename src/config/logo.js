@@ -7,10 +7,10 @@ export const logoConfig = {
   // Logo图片URL（支持相对路径和绝对路径）
   // 相对路径示例：'/logo.png'（放在public目录下）
   // 绝对路径示例：'https://example.com/logo.png'
-  url: '', // 如果为空，则显示文字logo
+  url: '/logo.png', // 如果为空，则显示文字logo
   
   // Logo的alt文本
-  alt: 'iCourse',
+  alt: '颐暖 NuanCare',
   
   // 侧边栏Logo配置
   sidebar: {
@@ -28,5 +28,3 @@ export const logoConfig = {
     maxHeight: 60
   }
 }
-
-

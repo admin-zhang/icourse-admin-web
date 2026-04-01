@@ -12,8 +12,8 @@
             :class="{ 'logo-collapsed': isCollapse }"
           />
           <span v-else class="logo-text" :class="{ 'logo-text-collapsed': isCollapse }">
-            <span v-if="!isCollapse">iCourse</span>
-            <span v-else>iC</span>
+            <span v-if="!isCollapse">颐暖 NuanCare</span>
+            <span v-else>颐暖</span>
           </span>
         </div>
       </div>

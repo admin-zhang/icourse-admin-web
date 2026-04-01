@@ -59,10 +59,10 @@
         </el-table-column>
         <el-table-column prop="phoneNumber" label="手机号码" width="130" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column prop="sex" label="性别" width="80">
+        <el-table-column prop="gender" label="性别" width="80">
           <template #default="scope">
-            <el-tag :type="scope.row.sex === '1' ? 'success' : scope.row.sex === '2' ? 'info' : 'primary'">
-              {{ formatSex(scope.row.sex) }}
+            <el-tag :type="scope.row.gender === '1' ? 'success' : scope.row.gender === '2' ? 'info' : 'primary'">
+              {{ formatGender(scope.row.gender) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -171,8 +171,8 @@
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="formData.email" placeholder="请输入邮箱" />
         </el-form-item>
-        <el-form-item label="性别" prop="sex">
-          <el-radio-group v-model="formData.sex">
+        <el-form-item label="性别" prop="gender">
+          <el-radio-group v-model="formData.gender">
             <el-radio label="0">男</el-radio>
             <el-radio label="1">女</el-radio>
             <el-radio label="2">保密</el-radio>
@@ -380,7 +380,7 @@ const formData = reactive({
   nickName: '',
   phoneNumber: '',
   email: '',
-  sex: '2',
+  gender: '2',
   status: 0
 })
 
@@ -610,13 +610,13 @@ const handleCurrentChange = (current) => {
 }
 
 // 格式化性别
-const formatSex = (sex) => {
-  const sexMap = {
+const formatGender = (gender) => {
+  const genderMap = {
     '0': '男',
     '1': '女',
     '2': '保密'
   }
-  return sexMap[sex] || '保密'
+  return genderMap[gender] || '保密'
 }
 
 // 格式化状态
@@ -648,7 +648,7 @@ const handleAdd = () => {
     nickName: '',
     phoneNumber: '',
     email: '',
-    sex: '2',
+    gender: '2',
     status: 0
   })
   dialogVisible.value = true
@@ -666,7 +666,7 @@ const handleEdit = async (row) => {
         nickName: res.data.nickName || '',
         phoneNumber: res.data.phoneNumber,
         email: res.data.email || '',
-        sex: res.data.sex || '2',
+        gender: res.data.gender || '2',
         status: res.data.status
       })
       dialogVisible.value = true

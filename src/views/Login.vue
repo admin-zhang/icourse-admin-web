@@ -6,7 +6,7 @@
         <div class="login-logo" v-if="logoUrl">
           <img :src="logoUrl" :alt="logoAlt" class="logo-image" />
         </div>
-        <h2>iCourse 管理后台</h2>
+        <h2>颐暖 NuanCare 管理后台</h2>
         <p>管理员登录</p>
       </div>
 
